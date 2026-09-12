@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CSV_PATH = PROJECT_ROOT / "data" / "processed" / "nhs_ncc_clean.csv"
 FIGURES_DIR = PROJECT_ROOT / "Figures"
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
@@ -250,4 +250,19 @@ def fig5_mapping_pot(valid: pd.DataFrame) -> None:
         fontsize=9, color="#555555", wrap=True
     )
     fig.tight_layout(rect=[0, 0.08, 1, 1])
-    fig.save
+    fig.savefig(FIGURES_DIR / "fig5_mapping_pot_comparison.png", dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
+def main() -> None:
+    _, valid = load_data()
+    fig1_distribution_skew(valid)
+    fig2_top_services(valid)
+    fig3_provider_variation(valid)
+    fig4_ncci_overview(valid)
+    fig5_mapping_pot(valid)
+    print(f"5 figures written to: {FIGURES_DIR}")
+
+
+if __name__ == "__main__":
+    main()
