@@ -6,6 +6,7 @@ Minimal coverage for the service benchmark query, per project guardrails:
 - every returned service meets the activity threshold
 - every returned service meets the provider-count threshold
 - no returned activity-weighted cost is null
+- raising the provider-count threshold only removes services, never adds new ones
 
 Run with: pytest
 """
@@ -45,6 +46,34 @@ def test_no_null_activity_weighted_cost(default_benchmarks):
 
 
 def test_higher_provider_threshold_returns_subset_or_equal():
-    loose = get_service_benchmarks(min_activity=50, min_provider_count=1, limit=100)
-    strict = get_service_benchmarks(min_activity=50, min_provider_count=10, limit=100)
+    """
+    Raising min_provider_count can only shrink the ELIGIBLE population, never
+    add new eligible services. We must compare full eligible sets here, not
+    top-N slices -- a top-100-by-cost list can differ completely between two
+    thresholds even though the underlying eligibility is a strict subset,
+    because LIMIT re-ranks a different population each time.
+    """
+    very_high_limit = 100_000  # effectively "no limit", to get the full eligible set
+
+    loose = get_service_benchmarks(
+        min_activity=50, min_provider_count=1, limit=very_high_limit
+    )
+    strict = get_service_benchmarks(
+        min_activity=50, min_provider_count=10, limit=very_high_limit
+    )
     assert set(strict["service"]).issubset(set(loose["service"]))
+
+
+def test_higher_provider_threshold_never_increases_eligible_count():
+    """A softer, always-true sanity check: raising the threshold should
+    never increase (and will typically decrease) the number of eligible
+    services, regardless of LIMIT/ranking behaviour."""
+    very_high_limit = 100_000
+
+    loose = get_service_benchmarks(
+        min_activity=50, min_provider_count=1, limit=very_high_limit
+    )
+    strict = get_service_benchmarks(
+        min_activity=50, min_provider_count=10, limit=very_high_limit
+    )
+    assert len(strict) <= len(loose)
