@@ -1,7 +1,53 @@
 from pathlib import Path
+from typing import Optional
 
+import pandas as pd
+import plotly.express as px
 import streamlit as st
 
+APP_DIR = Path(__file__).resolve().parent
+REPO_ROOT = APP_DIR.parent
+FIGURES_DIR = REPO_ROOT / "Figures"
+DB_PATH = REPO_ROOT / "data" / "processed" / "nhs_costs.duckdb"
+
+
+def ensure_database_built() -> None:
+    """
+    Builds the DuckDB database on first run if it does not already exist.
+
+    This makes the app self-building from the committed source CSV, so it
+    works both locally and on a fresh deployment (e.g. Streamlit Cloud)
+    where only the repository files -- not previously-built local
+    artefacts -- are available.
+    """
+    if DB_PATH.exists():
+        return
+
+    with st.spinner("First run: building the NHS costs database from source data..."):
+        from src.load_database import build_database
+
+        try:
+            build_database()
+        except FileNotFoundError as exc:
+            st.error(
+                "Could not build the database because the source CSV was not found. "
+                "Make sure the processed CSV is committed to the repository and that "
+                "CSV_PATH in src/load_database.py points to it."
+            )
+            st.exception(exc)
+            st.stop()
+        except ValueError as exc:
+            st.error(
+                "The source CSV is missing required columns. Check that it is the "
+                "row-level processed dataset, not an aggregated chart-output CSV."
+            )
+            st.exception(exc)
+            st.stop()
+
+
+ensure_database_built()
+
+from dashboard.queries import get_filter_options, get_service_benchmarks
 
 st.set_page_config(
     page_title="What Can NHS Cost Data Tell Us?",
@@ -10,9 +56,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-APP_DIR = Path(__file__).resolve().parent
-REPO_ROOT = APP_DIR.parent
-FIGURES_DIR = REPO_ROOT / "Figures"
 
 FIGURES = {
     "Activity-weighted service costs": {
@@ -53,7 +96,7 @@ FIGURES = {
     "Trimmed NCCI distribution": {
         "file": "06_ncci_trimmed_distribution.png",
         "description": (
-            "The 1st–99th percentile display shows the typical NCCI range. "
+            "The 1st-99th percentile display shows the typical NCCI range. "
             "Extreme values should remain available for audit."
         ),
     },
@@ -113,6 +156,128 @@ def render_disclaimer() -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# Interactive, SQL-backed service-cost page (DuckDB via dashboard/queries.py)
+# ---------------------------------------------------------------------------
+
+@st.cache_data(show_spinner=False)
+def cached_filter_options() -> dict:
+    return get_filter_options()
+
+
+@st.cache_data(show_spinner=False)
+def cached_service_benchmarks(
+    min_activity: int,
+    min_provider_count: int,
+    department: Optional[str],
+    mapping_pot: Optional[str],
+    limit: int,
+) -> pd.DataFrame:
+    return get_service_benchmarks(
+        min_activity=min_activity,
+        min_provider_count=min_provider_count,
+        department=department,
+        mapping_pot=mapping_pot,
+        limit=limit,
+    )
+
+
+def render_interactive_service_costs() -> None:
+    st.subheader("Interactive activity-weighted benchmark")
+    st.caption(
+        "Set your own activity and provider-count thresholds to explore the "
+        "SQL-backed benchmark directly. This is a **descriptive benchmark**, "
+        "not an efficiency ranking. Differences may reflect case mix, complexity, "
+        "provider structure, reporting or service-delivery differences."
+    )
+
+    options = cached_filter_options()
+
+    col1, col2 = st.columns(2)
+    with col1:
+        min_activity = st.slider(
+            "Minimum service activity", min_value=0, max_value=5000, value=50, step=10
+        )
+        department = st.selectbox(
+            "Department (optional)", options=["All"] + options["departments"]
+        )
+    with col2:
+        min_provider_count = st.slider(
+            "Minimum provider count", min_value=1, max_value=50, value=3, step=1
+        )
+        mapping_pot = st.selectbox(
+            "Mapping_Pot (optional)", options=["All"] + options["mapping_pots"]
+        )
+
+    department_filter = None if department == "All" else department
+    mapping_pot_filter = None if mapping_pot == "All" else mapping_pot
+
+    df = cached_service_benchmarks(
+        min_activity=min_activity,
+        min_provider_count=min_provider_count,
+        department=department_filter,
+        mapping_pot=mapping_pot_filter,
+        limit=15,
+    )
+
+    if df.empty:
+        st.warning(
+            "No services meet the selected thresholds. Try lowering the "
+            "minimum activity or minimum provider count."
+        )
+        return
+
+    fig = px.bar(
+        df.sort_values("activity_weighted_unit_cost"),
+        x="activity_weighted_unit_cost",
+        y="service",
+        orientation="h",
+        hover_data={
+            "total_activity": True,
+            "provider_count": True,
+            "median_unit_cost": ":.2f",
+            "simple_mean_unit_cost": ":.2f",
+            "actual_cost_per_activity": ":.2f",
+            "activity_weighted_unit_cost": ":.2f",
+        },
+        labels={
+            "activity_weighted_unit_cost": "Activity-weighted unit cost (£)",
+            "service": "Service",
+        },
+        title="Top eligible services by activity-weighted unit cost",
+    )
+    fig.update_layout(height=550, margin=dict(l=10, r=10, t=60, b=10))
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("**Filtered results**")
+    st.dataframe(
+        df.style.format(
+            {
+                "activity_weighted_unit_cost": "£{:.2f}",
+                "median_unit_cost": "£{:.2f}",
+                "simple_mean_unit_cost": "£{:.2f}",
+                "actual_cost_per_activity": "£{:.2f}",
+                "total_activity": "{:,.0f}",
+            }
+        ),
+        use_container_width=True,
+    )
+
+    csv_bytes = df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="Download filtered results as CSV",
+        data=csv_bytes,
+        file_name="service_cost_benchmark.csv",
+        mime="text/csv",
+    )
+
+    st.info(
+        "Note: this ranking reflects reported activity-weighted unit cost only. "
+        "It is not an efficiency ranking and should not be used to label any "
+        "provider or service as inefficient without further investigation."
+    )
+
+
 st.title("What Can NHS Cost Data Tell Us About Variation in Service Costs?")
 st.markdown(
     "**NHS National Cost Collection 2024/25**  \n"
@@ -139,6 +304,7 @@ with st.sidebar:
     st.write("Cleaned NCC 2024/25 data")
     st.write("MFF-unadjusted")
     st.write("Approximately 38,562 numeric records")
+
 
 if page == "Overview":
     st.header("Overview")
@@ -186,9 +352,9 @@ elif page == "Service costs":
         "benchmarks and show how the choice of metric changes the comparison."
     )
 
-    tabs = st.tabs(["Weighted costs", "Metric sensitivity", "Distributions"])
+    tabs = st.tabs(["Interactive benchmark", "Metric sensitivity", "Distributions"])
     with tabs[0]:
-        render_figure("Activity-weighted service costs")
+        render_interactive_service_costs()
     with tabs[1]:
         render_figure("Cost-metric sensitivity")
     with tabs[2]:
