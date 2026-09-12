@@ -27,7 +27,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # IMPORTANT: update this to your actual processed CSV filename.
 # This is the single line you must change to match your repository.
 # ---------------------------------------------------------------------------
-CSV_PATH = PROJECT_ROOT / "data" / "processed" / "cleaned_ncc_data.csv"
+CSV_PATH = PROJECT_ROOT / "data" / "processed" / "nhs_ncc_clean.csv"
 
 DB_PATH = PROJECT_ROOT / "data" / "processed" / "nhs_costs.duckdb"
 
