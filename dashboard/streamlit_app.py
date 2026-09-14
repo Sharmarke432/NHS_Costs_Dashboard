@@ -1,19 +1,22 @@
 import sys
 from pathlib import Path
-    
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 from typing import Optional
 
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+
 
 APP_DIR = Path(__file__).resolve().parent
 REPO_ROOT = APP_DIR.parent
 FIGURES_DIR = REPO_ROOT / "Figures"
 DB_PATH = REPO_ROOT / "data" / "processed" / "nhs_costs.duckdb"
+
 
 
 def ensure_database_built() -> None:
@@ -50,9 +53,12 @@ def ensure_database_built() -> None:
             st.stop()
 
 
+
 ensure_database_built()
 
+
 from dashboard.queries import get_filter_options, get_service_benchmarks
+
 
 st.set_page_config(
     page_title="What Can NHS Cost Data Tell Us?",
@@ -62,83 +68,61 @@ st.set_page_config(
 )
 
 
+# ---------------------------------------------------------------------------
+# Consolidated 5-figure set (fig1-fig5), replacing the original 10 static
+# figures. Filenames match generate_figures.py output.
+# ---------------------------------------------------------------------------
 FIGURES = {
-    "Activity-weighted service costs": {
-        "file": "02_top_services_weighted_cost.png",
+    "Cost distribution and skew": {
+        "file": "fig1_cost_distribution_skew.png",
         "description": (
-            "Services with the highest activity-weighted reported unit cost. "
-            "This is a descriptive cost benchmark, not an efficiency ranking."
+            "Reported unit costs are heavily skewed by a small number of very "
+            "expensive services, so the mean is misleading here. The median "
+            "(£405) better represents a typical record than the mean (£1,874)."
         ),
     },
-    "Distribution overview": {
-        "file": "01_distribution_overview.png",
+    "Top services by weighted median cost": {
+        "file": "fig2_top_services_median_cost.png",
         "description": (
-            "Activity, unit cost, actual cost, expected cost, variance and NCCI "
-            "are strongly skewed and contain influential extreme observations."
+            "The most expensive services using a robust cost measure "
+            "(activity-weighted median, not a simple average). This is a "
+            "descriptive cost benchmark, not an efficiency ranking -- high-cost "
+            "services are often specialist or complex care."
         ),
     },
-    "Cost-metric sensitivity": {
-        "file": "03_cost_metric_sensitivity.png",
+    "Provider variation by activity": {
+        "file": "fig3_provider_variation_by_activity.png",
         "description": (
-            "Service comparisons change depending on whether the simple mean, "
-            "median or activity-weighted mean is used."
+            "Providers with lower total activity report more variable costs. "
+            "This is expected statistically (small samples are noisier) and is "
+            "a pattern for further investigation, not evidence of poor performance."
         ),
     },
-    "Provider cost versus activity": {
-        "file": "04_provider_cost_vs_activity.png",
+    "NCCI overview": {
+        "file": "fig4_ncci_overview.png",
         "description": (
-            "Lower-activity providers show greater reported cost variability. "
-            "Potential outliers require investigation rather than automatic judgement."
-        ),
-    },
-    "Robust relative cost variation": {
-        "file": "05_robust_cost_variation.png",
-        "description": (
-            "Relative variation is measured using IQR divided by the median, "
-            "reducing sensitivity to extreme values."
-        ),
-    },
-    "Trimmed NCCI distribution": {
-        "file": "06_ncci_trimmed_distribution.png",
-        "description": (
-            "The 1st-99th percentile display shows the typical NCCI range. "
-            "Extreme values should remain available for audit."
-        ),
-    },
-    "Positive NCCI on a log scale": {
-        "file": "07_ncci_log_distribution.png",
-        "description": (
-            "Positive NCCI values span several orders of magnitude. "
-            "Zero and negative values require separate validation."
-        ),
-    },
-    "NCCI versus expected cost": {
-        "file": "08_ncci_vs_expected_cost.png",
-        "description": (
-            "NCCI appears more dispersed at lower expected costs, suggesting "
-            "a possible denominator or small-volume effect."
-        ),
-    },
-    "Variance distribution": {
-        "file": "09_variance_distribution.png",
-        "description": (
-            "Most records are close to zero variance, but substantial positive "
-            "and negative tails remain."
+            "NCCI is centred near 100 (median 96) but has a long tail of much "
+            "higher values. NCCI is an index, not a validated efficiency score -- "
+            "its formula and scale need confirmation before drawing performance "
+            "conclusions from it."
         ),
     },
     "Mapping_Pot comparison": {
-        "file": "10_mapping_pot_cost_activity.png",
+        "file": "fig5_mapping_pot_comparison.png",
         "description": (
-            "Mapping_Pot groups differ in cost and total activity. This is a "
-            "descriptive comparison and does not establish a causal MFF effect."
+            "Mapping_Pot groups differ in typical cost and total activity. This "
+            "is a descriptive comparison only -- differences may reflect case "
+            "mix, service type or reporting practices, not a causal MFF effect."
         ),
     },
 }
 
 
+
 @st.cache_data
 def figure_path(filename: str) -> Path:
     return FIGURES_DIR / filename
+
 
 
 def render_figure(name: str) -> None:
@@ -150,7 +134,8 @@ def render_figure(name: str) -> None:
         st.caption(figure["description"])
     else:
         st.error(f"Figure not found: {path}")
-        st.code(f"Place the image at figures/{figure['file']}")
+        st.code(f"Place the image at Figures/{figure['file']}")
+
 
 
 def render_disclaimer() -> None:
@@ -161,13 +146,16 @@ def render_disclaimer() -> None:
     )
 
 
+
 # ---------------------------------------------------------------------------
 # Interactive, SQL-backed service-cost page (DuckDB via dashboard/queries.py)
 # ---------------------------------------------------------------------------
 
+
 @st.cache_data(show_spinner=False)
 def cached_filter_options() -> dict:
     return get_filter_options()
+
 
 
 @st.cache_data(show_spinner=False)
@@ -185,6 +173,7 @@ def cached_service_benchmarks(
         mapping_pot=mapping_pot,
         limit=limit,
     )
+
 
 
 def render_interactive_service_costs() -> None:
@@ -283,12 +272,14 @@ def render_interactive_service_costs() -> None:
     )
 
 
+
 st.title("What Can NHS Cost Data Tell Us About Variation in Service Costs?")
 st.markdown(
     "**NHS National Cost Collection 2024/25**  \n"
     "An exploratory analysis of activity-weighted benchmarks, provider variation, "
     "cost metrics and NCCI distributions."
 )
+
 
 with st.sidebar:
     st.header("Dashboard navigation")
@@ -328,10 +319,7 @@ if page == "Overview":
     st.subheader("Questions explored")
     questions = [
         "Which services have the highest activity-weighted reported unit costs?",
-        "How much do service comparisons change when the cost metric changes?",
-        "Does reported provider cost become more variable at low activity?",
-        "Which services show the greatest relative variation?",
-        "How dispersed are NCCI and actual-versus-expected cost values?",
+        "Does reported provider cost stability relate to activity volume?",
         "How do Mapping_Pot groups differ descriptively in cost and activity?",
     ]
     for question in questions:
@@ -339,101 +327,96 @@ if page == "Overview":
 
     st.subheader("Main descriptive findings")
     findings = [
-        "Activity, cost and NCCI distributions are strongly right-skewed.",
-        "Simple means can be substantially different from medians and activity-weighted means.",
-        "Low-activity providers tend to have more unstable reported unit costs.",
-        "Specialist services often appear among high-cost or high-variation categories.",
-        "NCCI has a long right tail and needs validation before being used as an efficiency measure.",
+        "Reported unit cost is strongly right-skewed: median £405 vs mean £1,874 -- the mean is misleading here.",
+        "Low-activity providers show more variable reported unit costs; this is statistically expected, not evidence of poor performance.",
+        "Specialist services (e.g. paediatric cardiac surgery, intermediate care, critical care transport) dominate the activity-weighted cost benchmark.",
+        "NCCI is centred near 96 but has a long right tail (p99 ≈ 419) and needs formula validation before any efficiency use.",
+        "Mapping_Pot groups differ descriptively in typical cost and total activity; this does not establish a causal MFF effect.",
     ]
     for finding in findings:
         st.markdown(f"- {finding}")
 
     render_disclaimer()
 
+
 elif page == "Service costs":
     st.header("Service cost benchmarks")
     st.write(
         "These figures compare reported service costs using activity-weighted "
-        "benchmarks and show how the choice of metric changes the comparison."
+        "benchmarks and show why robust measures are preferred over simple means."
     )
 
-    tabs = st.tabs(["Interactive benchmark", "Metric sensitivity", "Distributions"])
+    tabs = st.tabs(["Interactive benchmark", "Top services (weighted median)", "Distribution and skew"])
     with tabs[0]:
         render_interactive_service_costs()
     with tabs[1]:
-        render_figure("Cost-metric sensitivity")
+        render_figure("Top services by weighted median cost")
     with tabs[2]:
-        render_figure("Distribution overview")
+        render_figure("Cost distribution and skew")
 
     st.subheader("Interpretation")
     st.write(
-        "Activity-weighted cost is the preferred high-level benchmark because it "
-        "reflects the contribution of activity volume. The median remains useful "
-        "for describing a typical provider-record observation. A simple mean is "
-        "best treated as a diagnostic because extreme values can dominate it."
+        "Activity-weighted median cost is the preferred high-level benchmark because it "
+        "reflects both typical cost and the contribution of activity volume, without being "
+        "dominated by extreme values the way a simple mean is. The distribution figure shows "
+        "why: a handful of very high-cost specialist services pull the mean (£1,874) well "
+        "above the median (£405)."
     )
     render_disclaimer()
+
 
 elif page == "Provider variation":
     st.header("Provider activity and cost variation")
     st.write(
-        "The provider-level figure examines whether reported unit costs become "
-        "more dispersed when providers have low activity."
+        "This figure examines whether reported unit costs become more dispersed "
+        "when providers have low total activity."
     )
 
-    render_figure("Provider cost versus activity")
-    render_figure("Robust relative cost variation")
+    render_figure("Provider variation by activity")
 
     st.subheader("Interpretation")
     st.write(
-        "The figures suggest that low activity is associated with greater cost "
-        "instability. This is consistent with a denominator effect, where a small "
-        "number of cases can substantially change a reported unit cost. It does "
-        "not demonstrate that higher-cost providers are inefficient."
+        "Providers with lower total activity show more scattered median unit costs. "
+        "This is consistent with a small-sample/denominator effect, where a limited "
+        "number of cases can substantially move a reported unit cost. It is a pattern "
+        "requiring further investigation, not evidence that any provider performs poorly."
     )
     render_disclaimer()
 
+
 elif page == "NCCI and variance":
-    st.header("NCCI and actual-versus-expected cost")
+    st.header("NCCI overview")
     st.write(
-        "This section treats NCCI and variance as validation and diagnostic "
-        "variables rather than direct efficiency scores."
+        "This section treats NCCI as a diagnostic variable rather than a "
+        "direct efficiency score."
     )
 
-    tabs = st.tabs(["NCCI distribution", "NCCI scale", "NCCI and expected cost", "Variance"])
-    with tabs[0]:
-        render_figure("Trimmed NCCI distribution")
-    with tabs[1]:
-        render_figure("Positive NCCI on a log scale")
-    with tabs[2]:
-        render_figure("NCCI versus expected cost")
-    with tabs[3]:
-        render_figure("Variance distribution")
+    render_figure("NCCI overview")
 
     st.subheader("Interpretation")
     st.write(
-        "NCCI has a typical central range but a long positive tail. The wider "
-        "dispersion at lower expected costs suggests that small denominators may "
-        "contribute to unstable index values. This hypothesis requires validation "
-        "using the underlying formula and record-level data."
+        "NCCI is centred near a median of 96, with a long positive tail extending to "
+        "roughly 419 at the 99th percentile. The shape suggests a typical central range "
+        "with a meaningful minority of much higher values that warrant individual review."
     )
 
     st.subheader("Validation checks required")
     checks = [
-        "Confirm the exact NCCI formula and scale.",
+        "Confirm the exact NCCI formula, denominator and scale.",
         "Count missing, zero and negative NCCI values.",
         "Review the highest NCCI records individually.",
-        "Assess sensitivity to small expected costs.",
+        "Assess sensitivity to small expected costs (potential denominator effect).",
         "Reconcile Actual_Cost, Expected_Cost and Variance definitions.",
     ]
     for check in checks:
         st.markdown(f"- {check}")
     render_disclaimer()
 
+
 elif page == "Mapping_Pot groups":
     st.header("Descriptive Mapping_Pot comparison")
     st.write(
-        "This figure compares activity-weighted unit cost and total activity across "
+        "This figure compares median unit cost and total activity across "
         "Mapping_Pot groups. Differences should be interpreted descriptively only."
     )
 
@@ -456,16 +439,17 @@ elif page == "Mapping_Pot groups":
         "does not establish that an MFF-related factor causes the observed cost differences."
     )
 
+
 elif page == "Evidence and limitations":
     st.header("Evidence and limitations")
 
     st.subheader("Conclusions supported by the figures")
     supported = [
-        "Reported NHS cost variables are highly skewed and contain extreme observations.",
-        "Cost comparisons are sensitive to the chosen summary statistic.",
-        "Activity-weighted benchmarks and medians are more informative than simple means alone.",
-        "Low-activity provider costs appear more variable.",
-        "NCCI has a long right tail and appears more dispersed at lower expected costs.",
+        "Reported unit cost is highly skewed: the median (£405) is far below the mean (£1,874).",
+        "Activity-weighted median benchmarks are more informative than simple means for comparing services.",
+        "Low-activity provider costs appear more variable than high-activity provider costs.",
+        "NCCI has a long right tail (median 96, p99 ≈ 419) that warrants individual review.",
+        "Mapping_Pot groups differ descriptively in typical cost and total activity.",
     ]
     for item in supported:
         st.markdown(f"- {item}")
@@ -507,6 +491,7 @@ elif page == "Evidence and limitations":
     )
 
     render_disclaimer()
+
 
 st.divider()
 st.caption(
