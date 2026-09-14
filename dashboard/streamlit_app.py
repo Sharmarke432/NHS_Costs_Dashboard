@@ -291,7 +291,6 @@ with st.sidebar:
             "Provider variation",
             "NCCI and variance",
             "Mapping_Pot groups",
-            "Evidence and limitations",
         ],
     )
 
@@ -438,59 +437,6 @@ elif page == "Mapping_Pot groups":
         "Mapping_Pot is used here as a descriptive grouping variable. The figure "
         "does not establish that an MFF-related factor causes the observed cost differences."
     )
-
-
-elif page == "Evidence and limitations":
-    st.header("Evidence and limitations")
-
-    st.subheader("Conclusions supported by the figures")
-    supported = [
-        "Reported unit cost is highly skewed: the median (£405) is far below the mean (£1,874).",
-        "Activity-weighted median benchmarks are more informative than simple means for comparing services.",
-        "Low-activity provider costs appear more variable than high-activity provider costs.",
-        "NCCI has a long right tail (median 96, p99 ≈ 419) that warrants individual review.",
-        "Mapping_Pot groups differ descriptively in typical cost and total activity.",
-    ]
-    for item in supported:
-        st.markdown(f"- {item}")
-
-    st.subheader("Conclusions not supported by the figures")
-    unsupported = [
-        "That a high-cost service or provider is inefficient.",
-        "That high variation proves poor performance.",
-        "That Mapping_Pot differences represent a causal MFF effect.",
-        "That raw NCCI rankings are validated efficiency scores.",
-        "That negative or extreme values are necessarily genuine clinical costs.",
-    ]
-    for item in unsupported:
-        st.markdown(f"- {item}")
-
-    st.subheader("Data-quality issues to review")
-    quality_items = [
-        "Negative Unit_Cost and Actual_Cost values.",
-        "Zero or negative NCCI values.",
-        "Very small Expected_Cost denominators.",
-        "Extreme NCCI and cost observations.",
-        "The 999 - Unknown service category.",
-        "Differences between weighted Unit_Cost and Actual_Cost divided by Activity.",
-    ]
-    for item in quality_items:
-        st.markdown(f"- {item}")
-
-    st.subheader("Presentation-ready conclusion")
-    st.success(
-        "The analysis shows that reported NHS service costs vary substantially and "
-        "that comparisons are sensitive to activity volume and the selected cost "
-        "metric. Activity-weighted and robust measures provide more informative "
-        "descriptive benchmarks than simple means alone. However, specialist case "
-        "mix, provider context and data-quality issues mean that high cost or high "
-        "variation cannot be interpreted as inefficiency. NCCI has a long right tail "
-        "and requires further validation before it can be used as an efficiency "
-        "measure. The figures therefore identify areas for investigation rather than "
-        "making provider-performance judgements."
-    )
-
-    render_disclaimer()
 
 
 st.divider()

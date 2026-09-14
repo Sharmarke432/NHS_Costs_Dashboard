@@ -9,3 +9,4 @@ data/processed/*.duckdb
 venv/
 *.egg-info/
 .DS_Store
+streamlit_app_test.py
